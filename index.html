@@ -53,14 +53,14 @@
       </button>
       <button class="splash-card" data-mode="2v2">
         <b>2v2</b>
-        <span>Teams of two. This app pairs, assigns tables and tracks points for
-          the leaderboard.</span>
+        <span>Teams of two. The Riftbound page pairs the captains; this app shows
+          the teams and tracks points for the leaderboard.</span>
       </button>
     </div>
-    <!-- An unofficial 1v1 has no event to read from, so the app has to run the
-         whole thing itself. 2v2 always does, so this only applies to 1v1. -->
+    <!-- An unofficial night has no event to read from, so the app has to run the
+         whole thing itself. -->
     <label class="chk splash-chk"><input type="checkbox" id="splash-manual">
-      Manual 1v1 &mdash; unofficial night, this app runs the pairings</label>
+      Manual &mdash; unofficial night, this app runs the pairings</label>
     <div class="splash-extra">
       <button id="splash-settings" class="splash-mini">Shop settings</button>
     </div>
@@ -107,17 +107,16 @@
     </label>
 
     <h2>How this night runs</h2>
-    <!-- 2v2 pairs locally either way, so the toggle only means something for 1v1. -->
-    <label class="chk" data-only="1v1"><input type="checkbox" id="ev-manual">
+    <label class="chk"><input type="checkbox" id="ev-manual">
       Manual &mdash; unofficial night, this app runs the pairings</label>
     <p class="hint" id="manual-hint"></p>
 
     <h2 data-only="official">Import players</h2>
     <div data-only="official">
-      <p class="hint">Paste the event ID from the locator URL &mdash;
-        <code>locator.riftbound.uvsgames.com/events/<b>254672</b></code></p>
+      <p class="hint">Paste the event number from the end of the event page address &mdash;
+        <code>playriftbound.com/en-US/events/<b>117380282030114802</b></code></p>
       <div class="row">
-        <input id="ev-id" placeholder="254672" inputmode="numeric">
+        <input id="ev-id" placeholder="117380282030114802" inputmode="numeric">
         <button id="btn-import">Import signups</button>
       </div>
       <p id="import-msg" class="msg"></p>
@@ -168,24 +167,30 @@
   <section data-panel="round" hidden>
     <h2>Round <span id="round-num">&mdash;</span></h2>
     <p id="uvs-lock" class="lock" hidden>
-      <b>The UVS event page is running the pairings.</b>
+      <b>The Riftbound event page is running the pairings.</b>
       This app is showing them rather than making its own, and players report
-      their own results there. Press <b>Refresh from UVS</b> after each new round
+      their own results there. Press <b>Refresh from Riftbound</b> after each new round
       is paired. The round clock below is still yours.
     </p>
-    <div class="row" data-only="mirror">
-      <button id="btn-uvs" class="ghost">Refresh from UVS</button>
+    <p class="lock" data-only="2v2 riot">
+      <b>The Riftbound event page is pairing the team captains.</b>
+      Only captains check in there; their teammates stay off it. This app swaps in
+      the team names and picks up the winners the captains report. You type the
+      points. It checks the page once a minute.
+    </p>
+    <div class="row" data-only="riot">
+      <button id="btn-uvs" class="ghost">Refresh from Riftbound</button>
     </div>
-    <p id="uvs-msg" class="msg" data-only="mirror"></p>
+    <p id="uvs-msg" class="msg" data-only="riot"></p>
 
     <!-- The clock belongs to every kind of night; the pairing buttons do not. -->
     <div class="row">
-      <button id="btn-pair" data-only="local">Generate pairings</button>
+      <button id="btn-pair" data-only="self">Generate pairings</button>
       <button id="btn-start" class="ghost">Start timer</button>
       <button id="btn-pause" class="ghost">Pause</button>
       <button id="btn-reset-timer" class="ghost">Reset timer</button>
     </div>
-    <div class="row" data-only="local">
+    <div class="row" data-only="self">
       <button id="btn-next-round" class="ghost">Finish round &amp; continue</button>
     </div>
     <p id="round-msg" class="msg"></p>
@@ -217,8 +222,8 @@
   </section>
 
   <!-- STATS -->
-  <!-- Two different time-scales, so two sub-tabs: legend meta is what people
-       brought on one night, player records only mean anything across nights. -->
+  <!-- Two different time-scales, so two sub-tabs: a finished night stands on its
+       own, player records only mean anything across nights. -->
   <section data-panel="stats" hidden>
     <nav class="subtabs">
       <button data-sub="events" class="on">Events</button>
@@ -227,17 +232,16 @@
 
     <div data-subpanel="events">
       <h2>Event history <span id="archive-count" class="count"></span></h2>
-      <p class="hint">Open a night to see its top 8 and the legend meta for that
-        night alone.</p>
+      <p class="hint">Open a night to see its top 8.</p>
       <ul id="archive-list" class="list"></ul>
     </div>
 
     <div data-subpanel="players" hidden>
       <h2>Player records <span id="hist-count" class="count"></span></h2>
       <p class="hint">Everyone who has played a night you finished and archived,
-        with their lifetime record and the legends they bring. Both team-mates
-        get their team's result, the same as the reporting list. The bar shows
-        matches played, filled by the share they won.</p>
+        with their lifetime record. Both team-mates get their team's result, the
+        same as the reporting list. The bar shows matches played, filled by the
+        share they won.</p>
       <div class="row">
         <button id="btn-export-history" class="ghost">Export player records (CSV)</button>
       </div>

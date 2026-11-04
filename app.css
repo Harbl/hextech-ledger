@@ -358,7 +358,9 @@ body:has(#display:not([hidden])) { overflow: hidden; height: 100vh; }
   letter-spacing: 0.14em;
 }
 
-.pr-bye { border-left-color: var(--dim); opacity: 0.75; }
+/* A third column for the BYE tag -- in the two-column row it wrapped onto a
+   line of its own and doubled the row's height. */
+.pr-bye { border-left-color: var(--dim); opacity: 0.75; grid-template-columns: 9vw 1fr auto; }
 
 .pr-bye-tag {
   font-size: calc(1.6vw * var(--tv));
@@ -526,10 +528,6 @@ input:focus, select:focus { outline: 2px solid var(--cyan-soft); outline-offset:
 }
 .splash-mini:hover { color: var(--ink); border-color: var(--brass); filter: none; }
 .splash-note { margin: 16px 0 0; font-size: 12px; color: var(--dim); }
-
-/* Legend names on the lifetime records list, kept off the name column. */
-.list li .legends { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; max-width: 45%; }
-.list li .legends .legend-chip { width: 10px; height: 10px; }
 
 #mode-badge { color: var(--brass-hi); font-weight: 700; }
 
@@ -852,36 +850,9 @@ h2::after {
 .top8 li:first-child .pl { color: var(--cyan); }
 .top8 .gp { color: var(--cyan); font-variant-numeric: tabular-nums; min-width: 34px; text-align: right; }
 
-/* Domain share as a donut -- part-to-whole at a glance, seven categories at
-   most, every segment named in the key beside it. */
-.meta-grid { display: grid; grid-template-columns: auto 1fr; gap: 18px; align-items: start; }
-@media (max-width: 620px) { .meta-grid { grid-template-columns: 1fr; } }
-
-.meta-donut { display: flex; flex-direction: column; align-items: center; gap: 8px; }
-.donut { display: block; }
-.donut-num {
-  text-anchor: middle;
-  font: 700 26px/1 "Inter", system-ui, sans-serif;
-  fill: var(--ink);
-}
-.donut-cap {
-  text-anchor: middle;
-  font: 600 9px/1 "Inter", system-ui, sans-serif;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  fill: var(--dim);
-}
-
-.key, .bars { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; font-size: 13px; }
-.key li { display: flex; align-items: center; gap: 7px; color: var(--dim); }
-.key li b { color: var(--ink); font-variant-numeric: tabular-nums; }
-
-/* Legend counts are magnitude, so one hue and a length, not seven more colours.
-   The domain chip beside the name carries the identity. */
-.bars li { display: grid; grid-template-columns: 1fr 1fr 26px; gap: 10px; align-items: center; }
-.bars .bar-name { display: flex; align-items: center; gap: 7px; min-width: 0; }
-.bars .bar-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bars b { text-align: right; color: var(--ink); font-variant-numeric: tabular-nums; }
+/* The per-night domain donut and legend bars were removed: they were play-rate
+   data for decks, which Riot's developer terms forbid retaining. The domain
+   colours stay, because the live leaderboard still tints each player's chip. */
 
 .bar-track { display: block; background: var(--bg-2); border: 1px solid var(--line); height: 12px; }
 .bar-track > i { display: block; height: 100%; background: var(--cyan-soft); min-width: 2px; }

@@ -35,7 +35,7 @@ my $server = IO::Socket::INET->new(
 ) or die "Could not start on port $port: $!\n";
 
 print "\n  Hextech Ledger running at  http://localhost:$port\n\n";
-print "  Signup import works here because localhost is allowlisted by the API.\n";
+print "  Signup import relays the public playriftbound.com event page.\n";
 print "  Press Ctrl+C to stop.\n\n";
 
 while (my $client = $server->accept) {
@@ -56,6 +56,23 @@ sub handle {
 
   while (my $line = <$c>) { last if $line =~ /^\r?\n$/ }   # drain headers
 
+  # Relay a public Riot event page; the browser can't fetch it itself (no CORS).
+  # Core Perl has no HTTPS, but every Mac ships curl. The id is digits only.
+  if ($path =~ m{^/riot/events/(\d+)$}) {
+    # With CHLD ignored the backtick can't collect curl's exit code and $? is
+    # always -1, which turned every good page into a 502.
+    local $SIG{CHLD} = 'DEFAULT';
+    my $body = `/usr/bin/curl -sf -A 'Mozilla/5.0 (Hextech Ledger)' https://playriftbound.com/en-US/events/$1`;
+    my $status = $? == 0 ? '200 OK' : '502 Bad Gateway';
+    print $c "HTTP/1.1 $status\r\n",
+             "Content-Type: text/html\r\n",
+             "Content-Length: ", length($body), "\r\n",
+             "Cache-Control: no-store\r\n",
+             "Connection: close\r\n\r\n",
+             $body;
+    return close $c;
+  }
+
   $path =~ s/\?.*//;
   $path =~ s/%([0-9A-Fa-f]{2})/chr hex $1/ge;
   $path = '/index.html' if $path eq '/';
@@ -64,7 +81,7 @@ sub handle {
   # abs_path resolves any ".." before we compare against the root.
   my $file = abs_path(File::Spec->catfile($root, split m{/}, $path));
   return not_found($c, $path)
-    unless $file && index($file, $root) == 0 && -f $file;
+    unless $file && index($file, "$root/") == 0 && -f $file;
 
   open my $fh, '<:raw', $file or return not_found($c, $path);
   my $body = do { local $/; <$fh> };

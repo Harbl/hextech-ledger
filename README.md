@@ -7,10 +7,26 @@ on the TV at the shop. It handles 1v1 and 2v2, official events and casual ones.
 > had it running, everything you saved — your archive, your shop logo, your TV
 > text size — comes across on its own the first time you open it.
 
+> **Security and privacy:** the app never asks for a login, keeps everything on
+> the shop's computer and can't be reached from the shop network. The details,
+> and how to check them yourself, are in [SECURITY.md](SECURITY.md). All of the
+> code is here in plain readable text for anyone who wants to review it.
+
+## Downloads
+
+Nothing to install on either one — download, unzip, double-click.
+
+| | |
+|---|---|
+| **Windows** | [Hextech-Ledger-Portable-Windows.zip](https://github.com/Harbl/hextech-ledger/releases/latest/download/Hextech-Ledger-Portable-Windows.zip) (about 39 MB — includes the official, signed Node.js it runs on) |
+| **Mac** | [Hextech-Ledger-Portable-Mac.zip](https://github.com/Harbl/hextech-ledger/releases/latest/download/Hextech-Ledger-Portable-Mac.zip) (under 1 MB — uses what macOS already has) |
+| **Security and privacy** | [PDF to print or send on](https://github.com/Harbl/hextech-ledger/releases/latest/download/Hextech-Ledger-Security-and-Privacy.pdf) · [read it online](SECURITY.md) |
+
+All past versions are on the [Releases page](https://github.com/Harbl/hextech-ledger/releases).
+
 Everything below is written in plain English. There is no account to make.
-It runs on a **Mac** or on **Windows** — follow whichever setup section matches
-the computer you are using. After that, the rest of the guide is the same for
-both.
+Follow whichever setup section matches the computer you are using. After that,
+the rest of the guide is the same for both.
 
 ---
 
@@ -20,13 +36,10 @@ both.
 
 ### 1. Get the folder onto the Mac
 
-On this page, click the green **Code** button, then **Download ZIP**.
+Download the **Mac** zip from [Downloads](#downloads) above.
 
-Open your **Downloads** folder and double-click the ZIP. That makes a normal
-folder. (Its name still says `magma-chamber` — that was the old name for this,
-and renaming the download would break the link. The app inside is the right one.)
-
-Drag that folder onto your **Desktop** so it is easy to find.
+Open your **Downloads** folder and double-click the ZIP. That makes a folder
+called **Hextech Ledger**. Drag it onto your **Desktop** so it is easy to find.
 
 ### 2. Let the Mac run it
 
@@ -54,32 +67,17 @@ Nothing needs installing on a Mac — everything it needs is already there.
 
 *(On a Mac? Use the section above instead.)*
 
-### 1. Install Node.js
+### 1. Get the folder onto the PC
 
-Unlike a Mac, Windows does not come with the piece this app needs to run, so you
-install it once. It is free and takes a couple of minutes.
-
-Go to **https://nodejs.org** and click the big green **LTS** button. Run the file
-it downloads and click **Next** through the installer, leaving every setting the
-way it comes.
-
-You never have to open Node.js or think about it again — the app uses it in the
-background.
-
-> On a shop computer that locks things down, you may need whoever looks after it
-> to install this for you.
-
-### 2. Get the folder onto the PC
-
-On this page, click the green **Code** button, then **Download ZIP**.
+Download the **Windows** zip from [Downloads](#downloads) above. It already
+contains everything the app needs, so there is nothing to install — it works on
+a locked-down shop computer too.
 
 Open your **Downloads** folder, right-click the ZIP, choose **Extract All**, then
-**Extract**. That makes a normal folder. (Its name still says `magma-chamber` — that was the old name for this,
-and renaming the download would break the link. The app inside is the right one.)
+**Extract**. Inside the folder that opens is one called **Hextech Ledger** —
+drag that onto your **Desktop** so it is easy to find.
 
-Drag that folder onto your **Desktop** so it is easy to find.
-
-### 3. Let Windows run it
+### 2. Let Windows run it
 
 Open the folder and find the file called:
 
@@ -177,19 +175,18 @@ That choice is the whole setup. The app only shows you the tabs and settings tha
 kind of night actually needs, so there is nothing extra to ignore.
 
 - **1v1** — the Riftbound page runs it, the app shows it. See below.
-- **2v2** — the app runs it. See below.
+- **2v2** — the Riftbound page pairs the team captains, the app shows the teams
+  and keeps the points. See below.
 
 You only pick once; it remembers. To change later, go to **Setup** and use the
 **Switch to 1v1** / **Switch to 2v2** button at the bottom.
 
-**Running a 1v1 that isn't on the Riftbound page?** Tick the **Manual 1v1** box
+**Running a night that isn't on the Riftbound page?** Tick the **Manual** box
 under the two choices first. That tells the app there is no event to read from,
 so it runs the whole thing itself — pairings, table numbers, results and points.
 Use it for casual side events and anything you are not putting on the Riftbound
 page. You can tick or untick it later on the **Setup** tab, but doing that clears
 the round you are in the middle of, so it asks first.
-
-> 2v2 has no such box, because the app runs those pairings either way.
 
 ### 4. Run the night
 
@@ -208,22 +205,20 @@ For Nexus Nights, skirmishes and store events, everything already happens on the
 Riftbound event page. It makes the pairings, and players report their own results
 on their phones.
 
-For those nights the app doesn't need to do any of that. It just puts the
-pairings, the standings and a big clock on the TV.
+For those nights the app doesn't need to do any of that. It reads the event page
+and puts the pairings, standings and round clock on the TV.
 
-Pick **1v1** when the app asks.
+Pick **1v1** when the app asks. On **Setup**, paste the event number from the end
+of the event's address — `playriftbound.com/en-US/events/`**`117380282030114802`**
+— and press **Import signups**. The app then checks the event page once a minute
+and updates the TV by itself; **Refresh from Riftbound** on the Round tab checks
+right away.
 
-1. On the **Setup** tab, put the event ID in and click **Import signups** once.
-   That is how the app knows which event you are running.
-2. Go to the **Round** tab. The pairings and table numbers appear and go straight
-   up on the TV.
-3. Press **Start timer** for the round clock.
+The TV shows the new pairings for the first 8 minutes of each round, then the
+standings. In round 1 it keeps showing pairings, because the Riftbound page has no
+standings until round 1 is finished. Long lists scroll by themselves.
 
-When the next round is paired, click **Refresh from UVS**. The app also checks by
-itself every half a minute, so results show up without you touching anything.
-
-You don't make teams and you don't type in any scores. The standings on the TV are
-the ones the Riftbound page is already keeping.
+You don't make teams and you don't type in any scores.
 
 > **Nothing is ever sent to the Riftbound page.** The app only reads it, so you
 > cannot break your event from in here.
@@ -238,31 +233,49 @@ tab appears for the leaderboard.
 
 ---
 
-## 2v2 nights — the app runs it
+## 2v2 nights — captains on the Riftbound page
 
-The Riftbound page has no way to run a 2v2 match, so for team nights the app does
-the work: pairings, table numbers, results and points.
+The Riftbound page can't run team matches yet, and it always makes its own
+pairings. So a 2v2 night runs there as a 1v1 between **team captains**, and the
+app turns those captains back into teams and keeps the points.
 
 Pick **2v2** when the app asks.
 
-1. **Setup** — put the event ID in and click **Import signups** to pull in
-   everyone who signed up. You can also add players by hand.
-2. **Teams** — put the players into pairs.
-3. **Round** — **Generate pairings**, then **Start timer**. Tap the winning team,
-   then type both teams' points.
-4. **Finish round & continue** when the round is done.
+1. **Setup** — paste the event number (the long number at the end of its web
+   address) and click **Import signups**. Both teammates should be signed up;
+   import them all. People still on the waitlist are left out; click Import again
+   later to pick up anyone who moved up. You can also add players by hand.
+2. **Teams** — put the players into pairs and give the teams names.
+3. **Check-in: only one player per team checks in on the Riftbound page** — that
+   is the captain. Either teammate will do. Anyone not checked in is dropped by
+   the Riftbound page when it pairs, so the teammates fall off on their own.
+4. **Round** — the Riftbound page pairs the captains. The app checks it once a
+   minute (or press **Refresh from Riftbound**) and puts the **team names** at the
+   Riftbound page's table numbers on the TV. Press **Start timer**.
+5. Captains report the winner on their phones as usual, and it turns green in the
+   app by itself (you can also tap it). **Type both teams' points** — the TV
+   leaderboard ranks on points.
+6. When the Riftbound page pairs the next round, it simply appears.
 
-### Reporting a 2v2 night
+If the app says **"Not on any team"**, a player who was paired isn't on a team in
+the app — fix it on the Teams tab and it sorts itself out on the next check. If it
+says **"Both players checked in"**, drop one of that team's players on the
+Riftbound page.
 
-Set the event up as **multiplayer unpaired**. That skips pairings entirely and
-just takes a win or a loss for each player, which is exactly what a 2v2 night
-produces — and it means **nobody has to be dropped from the event**, so everyone's
-match data still gets recorded.
+The leaderboard on the TV ranks on points, while the Riftbound page pairs on wins
+and losses, so the two orders won't always match. That is expected.
 
-Between rounds, open the **Results** tab. It lists every player **in alphabetical
-order** with their own win or loss, so you can go straight down the list without
-hunting for names. Both players on a team get their team's result, and a bye
-counts as a win for both.
+### An unofficial 2v2 night
+
+Tick **Manual** and the app does all of it: skip the import and check-in, then
+on the Round tab use **Generate pairings**, tap the winning team, type both teams'
+points, and **Finish round & continue** for the next round.
+
+### The Results tab
+
+It lists every player **in alphabetical order** with their own win or loss for the
+round. Both players on a team get their team's result, and a bye counts as a win
+for both — so the teammates who never checked in still have a record.
 
 Anything not finished yet says **not reported** rather than showing a loss, so you
 can see at a glance what is still outstanding.
@@ -279,20 +292,16 @@ Two halves, with a switch at the top.
 ### Events
 
 Every night you have finished and archived, newest first. **Click one to open
-it** and you get:
+it** to see the **top 8** for that night.
 
-- the **top 8** for that night, and
-- the **legend meta for that night** — a ring showing the split of domains
-  people brought, and a bar for each legend showing how many people played it.
-
-Meta is kept per night on purpose. What people brought last Tuesday is a real
-thing; averaging it with three months of other nights is not.
+Which legends people played isn't kept once a night is archived. Riot's rules
+for apps like this don't allow storing that.
 
 ### Players
 
 A running record for everyone who has ever played at your shop: matches won and
-lost, win rate, how many nights they have turned up to, how many they have won,
-and the legends they bring. The bar beside each name is how many matches they
+lost, win rate, how many nights they have turned up to, and how many they have
+won. The bar beside each name is how many matches they
 have played, with the filled part being the share they won.
 
 It fills in by itself — every time you use **Finish & archive event**, that
@@ -328,11 +337,14 @@ The computer remembers this, so you only need to do it once.
 
 ## If something goes wrong
 
-**The black window says "Node.js was not found" (Windows)**
+**The black window says "Node.js was not found" or that it "has known security
+holes" (Windows)**
 
-Step 1 of the Windows setup was skipped, or did not finish. Install it from
-**https://nodejs.org** using the green **LTS** button, then restart the computer
-and double-click the launcher again.
+The launcher can't find the Node.js that comes inside the download — usually
+because the `.bat` file was moved out of its folder, or the folder came from the
+green **Code** button instead of the Windows download. Download the **Windows**
+zip from [Downloads](#downloads) again and run the launcher from inside the
+**Hextech Ledger** folder, leaving the `node` folder next to it.
 
 **Windows shows a blue "Windows protected your PC" box**
 
@@ -377,18 +389,13 @@ Setup tab if that's wrong.
 
 The Riftbound page is making the pairings for this night, so the app won't make
 its own. If this is an unofficial night that isn't on the Riftbound page, tick
-**Manual 1v1** on the Setup tab and the button comes back.
+**Manual** on the Setup tab and the button comes back.
 
 **The app keeps asking to use my folder**
 
 Browsers make a page re-confirm folder access each time they start up. Click
 **Allow** and it will not ask again until next time you open the app. If you
 would rather not be asked, use **Settings → Use Downloads**.
-
-**A night shows no legend meta**
-
-Nobody had a legend set on the Setup tab that night. Legends are optional, and
-the ring only draws what was actually recorded.
 
 **Someone's missing from Player records**
 

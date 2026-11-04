@@ -8,14 +8,13 @@
 // Set this after deploying worker/index.js. Only needed for a hosted deployment.
 const PROXY = '';
 
-const LOCATOR = 'https://api.cloudflare.riftbound.uvsgames.com/hydraproxy';
-
-// The locator API allows browser requests from localhost, so running locally can
-// call it directly. Anywhere else needs the Worker to relay the request.
-// Note it must be "localhost" -- 127.0.0.1 is not on their allowlist.
+// Riot's event pages send no CORS headers, so the browser can't read them
+// directly. tools/serve.js (and serve.pl, and the Worker) relay
+// /riot/events/{id} to the public page. Running locally that relay is the page's
+// own origin, hence the empty base.
 function apiBase() {
   if (PROXY) return PROXY.replace(/\/$/, '');
-  if (location.hostname === 'localhost') return LOCATOR;
+  if (/^(localhost|127\.0\.0\.1)$/.test(location.hostname)) return '';
   return null;
 }
 
@@ -79,8 +78,21 @@ const reported = p => p.b === null
 function load() {
   try {
     const raw = localStorage.getItem(KEY);
-    return raw ? { ...blank(), ...JSON.parse(raw) } : blank();
+    return raw ? purgeMeta({ ...blank(), ...JSON.parse(raw) }) : blank();
   } catch { return blank(); }
+}
+
+// Riot's developer terms forbid *retaining* metagame-defining data, not just
+// publishing it -- play rates and win rates for decks and cards. A Legend is a
+// deck's defining card, so nothing keyed to one is archived any more. Archives
+// written before that rule are stripped here rather than left sitting in
+// localStorage, because stopping recording is not the same as not retaining.
+function purgeMeta(s) {
+  for (const ev of s.archive || []) {
+    (ev.players || []).forEach(p => { delete p.legend; });
+    (ev.standings || []).forEach(r => { delete r.legends; });
+  }
+  return s;
 }
 
 function save(broadcast = true) {
@@ -167,9 +179,12 @@ const MODE_TABS = {
 // why it gets Results and Standings while the mirrored version does not.
 const soloMode = () => state.mode === '1v1' && !!state.manual;
 const tabKey = () => (soloMode() ? '1v1-manual' : state.mode);
+// Official 2v2: Riot pairs the captains, this app scores the teams.
+const teamsOnRiot = () => state.mode === '2v2' && !state.manual;
 
 function viewTokens() {
-  return [state.mode, state.manual ? 'manual' : 'official', state.uvsMode ? 'mirror' : 'local'];
+  return [state.mode, state.manual ? 'manual' : 'official', state.uvsMode ? 'mirror' : 'local',
+    state.uvsMode || teamsOnRiot() ? 'riot' : 'self'];
 }
 
 const team = id => state.teams.find(t => t.id === id);
@@ -398,6 +413,8 @@ function renderDisplay() {
       }));
 
   $('#dsp-empty').hidden = rows.length > 0;
+  $('#dsp-empty').textContent = state.uvsMode ? 'Waiting for the Riftbound page to post pairings.'
+    : state.mode === '1v1' ? 'Add players to get started.' : 'Add teams to get started.';
   $('#dsp-standings').innerHTML = rows.map((s, i) => `
     <li class="${i === 0 ? 'top' : ''}" style="--rank-color:${i === 0 ? 'var(--brass)' : 'var(--line)'}">
       <div class="st-rank">${s.rank}</div>
@@ -467,7 +484,7 @@ function renderControl() {
     ? 'This app makes the pairings, assigns tables and keeps the scores. Nothing is read from the Riftbound event page.'
     : state.mode === '1v1'
       ? 'The Riftbound event page owns the pairings and the players report there. This app mirrors it and runs the clock.'
-      : 'Players are imported from the Riftbound event page, then this app pairs the teams and keeps the scores.';
+      : 'Import everyone, make the teams, then only one player per team checks in on the Riftbound page. It pairs those captains; this app shows the teams and keeps the points.';
 
   // players
   $('#player-list').innerHTML = state.players.map(p => `
@@ -501,14 +518,14 @@ function renderControl() {
   // disagree and results get reported against the wrong matches.
   const locked = state.uvsMode;
   $('#uvs-lock').hidden = !state.uvsMode;
-  $('#btn-uvs').disabled = !state.uvsMode;
+  $('#btn-uvs').disabled = !state.uvsMode && !teamsOnRiot();
   ['#btn-pair', '#btn-next-round'].forEach(sel => { $(sel).disabled = locked; });
   // Mirroring UVS: nothing is scored here, so the list is read-only and just
   // shows what the players are looking at, including who has reported.
   if (state.uvsMode) {
     const rows = state.uvsPairings || [];
     $('#pairing-list').innerHTML = !rows.length
-      ? '<li class="sub">Nothing pulled from UVS yet.</li>'
+      ? '<li class="sub">Nothing pulled from the Riftbound page yet.</li>'
       : rows.map(p => `<li>
           <span class="grow">${p.bye
             ? `${esc(p.names[0] || '?')} <span class="bye">BYE</span>`
@@ -520,7 +537,7 @@ function renderControl() {
     $('#ctl-standings').innerHTML = (state.uvsStandings || []).map(s => `
       <li><span class="grow"><b>${s.rank}. ${esc(s.name)}</b><br>
         <span class="sub">${s.w}-${s.l}${s.d ? `-${s.d}` : ''} &middot; ${s.pts} match pts</span>
-      </span></li>`).join('') || '<li class="sub">Nothing pulled from UVS yet.</li>';
+      </span></li>`).join('') || '<li class="sub">Nothing pulled from the Riftbound page yet.</li>';
     renderStats();
     return;
   }
@@ -580,76 +597,18 @@ function renderResults() {
     : '<li class="sub">Nothing to report yet — pair a round and record some results.</li>';
 }
 
-// ------------------------------------------------------------------ meta
+// ----------------------------------------------------------------- stats
 //
-// Legend meta belongs to a single night -- what people brought that week -- so
-// it is computed per archived event rather than pooled. Player records are the
-// opposite: they only mean anything across events. The Stats tab is split in two
-// for exactly that reason.
-
-function eventMeta(ev) {
-  const byLegend = {}, byDomain = {};
-  for (const s of ev.standings || [])
-    (s.legends || []).forEach(n => {
-      if (!n) return;
-      byLegend[n] = (byLegend[n] || 0) + 1;
-      const d = legendOf(n)?.domains?.[0] || 'Colorless';
-      byDomain[d] = (byDomain[d] || 0) + 1;
-    });
-  const legendRows = Object.entries(byLegend).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  const domainRows = Object.entries(byDomain).sort((a, b) => b[1] - a[1]);
-  return { legendRows, domainRows, total: legendRows.reduce((n, [, c]) => n + c, 0) };
-}
-
-// A donut, because domain share is part-to-whole at a glance and there are only
-// ever seven domains. Every segment is labelled beside the ring: the domain hues
-// are fixed by the game, so colour alone is never asked to carry identity.
-// Segments are separated by a gap the width of the page background, not a stroke.
-const TAU = Math.PI * 2;
-function donut(rows, total, size = 132) {
-  const r = size / 2, ring = size * 0.17, mid = r - ring / 2;
-  const gap = total > 1 ? 0.022 : 0;                    // radians of surface between segments
-  const arc = (from, to) => {
-    const pt = a => [r + mid * Math.cos(a - Math.PI / 2), r + mid * Math.sin(a - Math.PI / 2)];
-    const [x1, y1] = pt(from), [x2, y2] = pt(to);
-    return `M${x1.toFixed(2)} ${y1.toFixed(2)} A${mid} ${mid} 0 ${to - from > Math.PI ? 1 : 0} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`;
-  };
-  let at = 0;
-  const segs = rows.map(([name, count]) => {
-    const span = (count / total) * TAU;
-    const d = arc(at + gap / 2, at + span - gap / 2);
-    at += span;
-    // A single domain would otherwise draw a zero-length arc, so close the ring.
-    return rows.length === 1
-      ? `<circle cx="${r}" cy="${r}" r="${mid}" fill="none" stroke="${DOMAIN_COLOR[name] || DOMAIN_COLOR.Colorless}" stroke-width="${ring}"/>`
-      : `<path d="${d}" fill="none" stroke="${DOMAIN_COLOR[name] || DOMAIN_COLOR.Colorless}" stroke-width="${ring}" stroke-linecap="butt"/>`;
-  }).join('');
-  return `<svg class="donut" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" role="img"
-    aria-label="Domain split: ${rows.map(([n, c]) => `${n} ${c}`).join(', ')}">
-    <circle cx="${r}" cy="${r}" r="${r - ring / 2}" fill="none" stroke="var(--line)" stroke-width="1"/>
-    ${segs}
-    <text x="${r}" y="${r - 2}" class="donut-num">${total}</text>
-    <text x="${r}" y="${r + 15}" class="donut-cap">legends</text>
-  </svg>`;
-}
-
-function metaPanel(ev) {
-  const { legendRows, domainRows, total } = eventMeta(ev);
-  if (!total) return '<p class="sub">No legends were recorded for this night.</p>';
-  const top = legendRows[0][1];
-  return `<div class="meta-grid">
-    <div class="meta-donut">
-      ${donut(domainRows, total)}
-      <ul class="key">${domainRows.map(([n, c]) => `<li>
-        <i class="legend-chip" style="background:${DOMAIN_COLOR[n] || DOMAIN_COLOR.Colorless}"></i>
-        <span class="grow">${esc(n)}</span><b>${c}</b></li>`).join('')}</ul>
-    </div>
-    <ul class="bars">${legendRows.map(([n, c]) => `<li>
-      <span class="bar-name"><i class="legend-chip" style="background:${legendColor(n)}"></i>${esc(shortLegend(n))}</span>
-      <span class="bar-track"><i style="width:${(c / top) * 100}%"></i></span>
-      <b>${c}</b></li>`).join('')}</ul>
-  </div>`;
-}
+// The Stats tab is split in two because the halves work on different
+// time-scales: an archived night stands on its own, player records only mean
+// anything across nights.
+//
+// There is deliberately no Legend or domain breakdown in here. Riot's developer
+// terms forbid publishing or retaining metagame-defining data -- play rates and
+// win rates for decks and cards -- and a Legend is a deck's defining card, so
+// counting who brought what is precisely the prohibited thing. Legends are still
+// picked per player and shown on the live leaderboard; they are never counted,
+// never exported and never archived. See purgeMeta().
 
 function eventPanel(ev, i) {
   const top8 = (ev.standings || []).slice(0, 8);
@@ -661,8 +620,6 @@ function eventPanel(ev, i) {
       <span class="sub">${s.w}-${s.l}${s.d ? `-${s.d}` : ''}</span>
       <b class="gp">${s.gp ?? 0}</b>
     </li>`).join('') || '<li class="sub">No standings saved.</li>'}</ol>
-    <h3>Legend meta that night</h3>
-    ${metaPanel(ev)}
     <div class="row">
       <button class="ghost sm" data-del-archive="${i}">Delete this event</button>
     </div>
@@ -689,19 +646,14 @@ function renderStats() {
   $('#hist-count').textContent = hist.length ? `(${hist.length})` : '';
   $('#btn-export-history').disabled = !hist.length;
   const most = Math.max(1, ...hist.map(e => e.played));
-  $('#hist-list').innerHTML = hist.length ? hist.map(e => {
-    const tops = topLegends(e);
-    return `<li>
+  $('#hist-list').innerHTML = hist.length ? hist.map(e => `
+    <li>
       <span class="grow"><b>${esc(e.name)}</b><br>
         <span class="sub">${e.w}-${e.l}${e.d ? `-${e.d}` : ''} &middot; ${(e.winPct * 100).toFixed(0)}% &middot;
         ${e.events} night${e.events === 1 ? '' : 's'}${e.wins ? ` &middot; ${e.wins} won` : ''}</span></span>
       <span class="bar-track wins" title="${e.w} of ${e.played} matches won">
         <i style="width:${(e.played / most) * 100}%"><em style="width:${e.winPct * 100}%"></em></i></span>
-      <span class="sub legends">${tops.length
-        ? tops.map(n => `<i class="legend-chip" style="background:${legendColor(n)}"></i>${esc(shortLegend(n))}`).join(' ')
-        : 'no legend recorded'}</span>
-    </li>`;
-  }).join('') : '<li class="sub">Nothing yet — finish and archive a night and everyone who played shows up here.</li>';
+    </li>`).join('') : '<li class="sub">Nothing yet — finish and archive a night and everyone who played shows up here.</li>';
 }
 
 // ------------------------------------------------------- round results
@@ -752,29 +704,40 @@ function msg(sel, text, kind = '') {
 
 async function importSignups(id) {
   const base = apiBase();
-  if (!base) throw new Error('Signup import needs the Worker deployed and PROXY set in app.js (or run the app from localhost).');
-  const ev = await fetch(`${base}/api/v2/events/${id}/`).then(r => r.ok ? r.json() : Promise.reject(new Error(`Event ${id} not found`)));
-
-  const names = [];
-  for (let page = 1; ; page++) {
-    const res = await fetch(`${base}/api/v2/events/${id}/registrations/?page=${page}&page_size=100`);
-    if (!res.ok) break;
-    const data = await res.json();
-    names.push(...(data.results || []).map(r => r.best_identifier || r.user?.best_identifier).filter(Boolean));
-    if (!data.next_page_number) break;
-  }
-  return { name: ev.name, minutes: ev.settings?.round_duration_in_minutes || state.minutes, names };
+  if (base === null) throw new Error('Signup import needs the Worker deployed and PROXY set in app.js (or run the app from localhost).');
+  const res = await fetch(`${base}/riot/events/${id}`);
+  if (!res.ok) throw new Error(`Event ${id} not found on playriftbound.com.`);
+  return parseEventPage(await res.text());
 }
 
-// ------------------------------------------------------------ UVS mirror
+// Riot's API is closed to anonymous callers, but the public event page is
+// server-rendered with the same data embedded as escaped JSON. Only REGISTERED
+// players are taken -- waitlisted ones have no seat, and the waitlist promotes
+// itself, so importing again later picks up anyone who moved up.
+function parseEventPage(html) {
+  const s = html.replace(/\\"/g, '"');
+  const unescape = t => { try { return JSON.parse(`"${t}"`); } catch { return t; } };
+  let names = [...new Set([...s.matchAll(/"status":"REGISTERED"[^{}]*"player":\{[^}]*"displayName":"((?:[^"\\]|\\.)*)"/g)]
+    .map(m => unescape(m[1])))];
+  // Once the event starts the registrant list gives way to the participant list,
+  // where no-shows are DROPPED -- so this is who is actually playing.
+  if (!names.length) names = (riotTournament(html)?.tournamentParticipants || [])
+    .filter(p => p.status === 'ACTIVE').map(p => p.player.displayName);
+  const name = (/<h1[^>]*>([^<]*)<\/h1>/.exec(html)?.[1] || '')
+    .replace(/&#x27;|&#39;/g, "'").replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+  return { name, minutes: state.minutes, names };
+}
+
+// ------------------------------------------------------------ 1v1 mirror
 //
-// For 1v1 nights -- Nexus Nights, skirmishes, store events -- UVS does the
-// pairing and the players report their own results, so this app is purely a
-// display and a clock. Nothing is scored here and nothing is pushed back; the
-// pairings and standings are mirrored onto the TV exactly as UVS has them.
+// For 1v1 nights -- Nexus Nights, skirmishes, store events -- the Riftbound
+// event page does the pairing and the players report their own results, so this
+// app is purely a display and a clock. Nothing is scored here and nothing is
+// pushed back; the pairings and standings are mirrored onto the TV as Riot has
+// them. (The state still says "uvs" -- the mirror was built for UVS, which Riot
+// replaced in 2026-10.)
 //
-// The whole feed is public and keyed on the event id alone, which is the one
-// already entered for signup import.
+// It reads the same public page as signup import, keyed on the same event id.
 
 // The clock hangs off a round object, so mirroring keeps an otherwise empty
 // round around purely to own the timer.
@@ -782,37 +745,66 @@ const bareRound = n => ({ n, pairings: [], endsAt: 0, pausedMs: (state.minutes |
 
 async function fetchUvs(id) {
   const base = apiBase();
-  if (!base) throw new Error('Reading the UVS event needs the app to be running from localhost.');
-  const ev = await fetch(`${base}/api/v2/player/events/${id}/tv/`)
-    .then(r => r.ok ? r.json() : Promise.reject(new Error(`Event ${id} not found.`)));
+  if (base === null) throw new Error('Reading the event needs the app to be running from localhost.');
+  const res = await fetch(`${base}/riot/events/${id}`);
+  if (!res.ok) throw new Error(`Event ${id} not found on playriftbound.com.`);
+  return riotFeed(await res.text());
+}
 
-  const [mRes, sRes] = await Promise.all([
-    fetch(`${base}/api/v2/player/events/${id}/tv/matches/`),
-    fetch(`${base}/api/v2/player/events/${id}/tv/standings/`),
-  ]);
-  const matches = mRes.ok ? (await mRes.json()).results || [] : [];
-  const standings = sRes.ok ? (await sRes.json()).results || [] : [];
+// Once an event starts, the page embeds the whole tournament (rounds, matches,
+// standings) in Next.js's flight payload: JSON inside JS string literals pushed
+// to self.__next_f. Decode those, then cut the CompeteTournament object out by
+// bracket matching. Before the start it isn't there, and nothing is paired yet.
+function riotTournament(html) {
+  let flight = '';
+  for (const m of html.matchAll(/self\.__next_f\.push\(\[1,("(?:[^"\\]|\\.)*")\]\)/g)) flight += JSON.parse(m[1]);
+  const i = flight.indexOf('{"__typename":"CompeteTournament"');
+  if (i < 0) return null;
+  let depth = 0, str = false, j = i;
+  for (; j < flight.length; j++) {
+    const c = flight[j];
+    if (str) { if (c === '\\') j++; else if (c === '"') str = false; continue; }
+    if (c === '"') str = true; else if (c === '{') depth++; else if (c === '}' && --depth === 0) break;
+  }
+  return JSON.parse(flight.slice(i, j + 1));
+}
 
-  // The matches feed carries no round label, so read it off the round list:
-  // the one in progress if there is one, else the last that exists.
-  const rounds = (ev.tournament_phases || []).flatMap(p => p.rounds || []);
-  const cur = [...rounds].reverse().find(r => r.status === 'IN_PROGRESS') || rounds[rounds.length - 1];
+function riotFeed(html) {
+  const t = riotTournament(html);
+  if (!t) return { name: parseEventPage(html).name, round: 0, pairings: [], rounds: [], standings: [] };
+
+  // Players inside matches are often back-references into an earlier part of
+  // the payload rather than objects, but every team carries its id, and the
+  // participant list maps ids to names.
+  const who = Object.fromEntries((t.tournamentParticipants || []).map(p => [p.esportsTeamId, p.player.displayName]));
+  const rounds = (t.stages || []).flatMap(s => s.sections.flatMap(x => x.rounds));
+  const cur = rounds[rounds.length - 1];
+  const last = [...rounds].reverse().find(r => r.endOfRoundStandings?.length);
+  const pairs = r => [
+    // A bye also arrives as a pseudo-match ("bye-…" id, no table, a placeholder
+    // opponent, already won); byeTeamIds below is the one to show.
+    ...(r?.matches || []).filter(m => !String(m.esportsMatchId).startsWith('bye-')).map(m => ({
+      table: m.tableNumber,
+      bye: false,
+      names: m.teams.map(x => who[x.esportsTeamId] ?? '?'),
+      winner: who[m.teamOutcomes?.find(o => o.outcome === 'WIN')?.esportsTeamId] || null,
+      // match.status stays IN_PROGRESS even after its round is finalized, so
+      // "reported" is having an outcome at all.
+      done: !!m.teamOutcomes?.length,
+    })),
+    ...(r?.byeTeamIds || []).map(id => ({ table: null, bye: true, names: [who[id] ?? '?'], winner: null, done: true })),
+  ].sort((a, b) => (a.table ?? Infinity) - (b.table ?? Infinity));   // Riot's order isn't by table
 
   return {
-    name: ev.name,
-    round: cur?.round_number ?? rounds.length,
-    pairings: matches.map(m => ({
-      table: m.table_number,
-      bye: !!m.match_is_bye || m.players.length < 2,
-      names: m.players.map(p => p.tv_display_name),
-      winner: m.players.find(p => p.is_winner)?.tv_display_name || null,
-      done: m.status === 'COMPLETE',
-    })),
-    standings: standings.map(s => ({
-      rank: s.rank,
-      name: s.tv_display_name,
-      w: s.matches_won, l: s.matches_lost, d: s.matches_drawn,
-      pts: s.total_match_points,
+    name: t.name,
+    round: cur?.roundNumber ?? 0,
+    pairings: pairs(cur),
+    // Every round, for 2v2: its results live in this app, so one missed poll
+    // between rounds must not lose the last results of the round before.
+    rounds: rounds.map(r => ({ n: r.roundNumber, pairings: pairs(r) })),
+    standings: (last?.endOfRoundStandings || []).map(s => ({
+      rank: s.rank, name: who[s.esportsTeamId] ?? '?',
+      w: s.matchWins, l: s.matchLosses, d: s.matchDraws, pts: s.matchPoints,
     })),
   };
 }
@@ -829,6 +821,47 @@ function applyUvs(feed) {
   return { count: feed.pairings.length, unmatched: [] };
 }
 
+// ------------------------------------------------------------ 2v2 on Riot
+//
+// Riot has no team events yet and no "shop pairs it" mode, so a 2v2 runs as a
+// 1v1 of captains: only one player per team checks in (Riot drops the rest when
+// it pairs), the page pairs them, and the captains report the winner. Teams are
+// made here as usual from the full signup list; a Riot name is mapped to
+// whichever team it is on, so there is no separate captain to mark. Results land
+// in the app's own rounds, which keeps game points, the archive and both
+// teammates' records working exactly as on a night paired here.
+function applyTeamFeed(feed) {
+  const teamOf = {};
+  for (const t of state.teams) for (const id of t.players) {
+    const n = player(id)?.name;
+    if (n) teamOf[n.toLowerCase()] = t.id;
+  }
+  const unmatched = new Set(), twice = new Set();
+  for (const fr of feed.rounds) {
+    let r = state.rounds.find(x => x.n === fr.n);
+    if (!r) state.rounds.push(r = bareRound(fr.n));
+    const seen = new Set(), prev = r.pairings;
+    // Rebuilt on every poll, so fixing a team on the Teams tab fixes the next
+    // read; typed points and a tapped winner carry over by matchup.
+    r.pairings = fr.pairings.flatMap(fp => {
+      const ids = fp.names.map(n => teamOf[n.toLowerCase()]);
+      fp.names.forEach((n, i) => { if (!ids[i]) unmatched.add(n); });
+      if (ids.some(id => !id)) return [];
+      ids.forEach(id => { if (seen.has(id)) twice.add(teamName(id)); seen.add(id); });
+      const [a, b = null] = ids;
+      const old = prev.find(p => p.a === a && p.b === b) || {};
+      const won = fp.winner && teamOf[fp.winner.toLowerCase()];
+      return [{
+        a, b, table: fp.table,
+        winner: b === null ? null : won ? (won === a ? 'a' : 'b') : fp.done ? 'draw' : (old.winner ?? null),
+        pa: old.pa ?? (b === null ? state.byePoints ?? 8 : null), pb: old.pb ?? null,
+      }];
+    });
+  }
+  save();
+  return { count: feed.pairings.length, unmatched: [...unmatched], twice: [...twice] };
+}
+
 // ---------------------------------------------------------------- archive
 
 function finishEvent() {
@@ -837,13 +870,13 @@ function finishEvent() {
   state.archive.unshift({
     date: Date.now(),
     name: state.name,
-    players: state.players.map(p => ({ name: p.name, legend: p.legend || null })),
+    players: state.players.map(p => ({ name: p.name })),
     teams: state.teams.map(t => ({ name: t.name, players: t.players.map(id => player(id)?.name ?? '?') })),
     rounds: state.rounds.length,
+    // No legend is written here, by design -- see purgeMeta().
     standings: final.map((s, i) => ({
       place: i + 1, name: s.team.name,
       players: s.team.players.map(id => player(id)?.name ?? '?'),
-      legends: s.team.players.map(id => player(id)?.legend || null),
       w: s.w, l: s.l, d: s.d, pts: s.pts, gp: s.gp,
     })),
     matches: state.rounds.flatMap(r => r.pairings.filter(reported).map(p => ({
@@ -938,7 +971,7 @@ function playerResults() {
       const p = player(id);
       if (!p) continue;
       rows.push({
-        player: p.name, team: t.name, legend: p.legend || '',
+        player: p.name, team: t.name,
         w: r.w, l: r.l, d: r.d, matchPoints: r.pts, gamePoints: r.gp,
       });
     }
@@ -947,9 +980,9 @@ function playerResults() {
 }
 
 function playerResultsCSV() {
-  const head = ['player', 'team', 'legend', 'wins', 'losses', 'draws', 'match_points', 'game_points'];
+  const head = ['player', 'team', 'wins', 'losses', 'draws', 'match_points', 'game_points'];
   const rows = playerResults().map(r =>
-    [r.player, r.team, r.legend, r.w, r.l, r.d, r.matchPoints, r.gamePoints]);
+    [r.player, r.team, r.w, r.l, r.d, r.matchPoints, r.gamePoints]);
   return [head, ...rows]
     .map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
 }
@@ -968,12 +1001,10 @@ function playerHistory() {
         const name = String(raw || '').trim();
         if (!name || name === '?') return;
         const k = name.toLowerCase();
-        const e = by.get(k) || { name, events: 0, w: 0, l: 0, d: 0, gp: 0, wins: 0, legends: {}, last: 0 };
+        const e = by.get(k) || { name, events: 0, w: 0, l: 0, d: 0, gp: 0, wins: 0, last: 0 };
         e.events++;
         e.w += s.w || 0; e.l += s.l || 0; e.d += s.d || 0; e.gp += s.gp || 0;
         if (s.place === 1) e.wins++;                       // nights finished in first
-        const legend = (s.legends || [])[i];
-        if (legend) e.legends[legend] = (e.legends[legend] || 0) + 1;
         e.last = Math.max(e.last, ev.date || 0);
         by.set(k, e);
       });
@@ -985,24 +1016,21 @@ function playerHistory() {
   }).sort((a, b) => b.w - a.w || b.winPct - a.winPct || a.name.localeCompare(b.name));
 }
 
-// Most-played first, so the chip reads as "what this player brings".
-const topLegends = e => Object.entries(e.legends).sort((a, b) => b[1] - a[1]).map(([n]) => n);
-
 function playerHistoryCSV() {
-  const head = ['player', 'events', 'matches', 'wins', 'losses', 'draws', 'win_pct', 'game_points', 'event_wins', 'legends'];
+  const head = ['player', 'events', 'matches', 'wins', 'losses', 'draws', 'win_pct', 'game_points', 'event_wins'];
   const rows = playerHistory().map(e =>
-    [e.name, e.events, e.played, e.w, e.l, e.d, (e.winPct * 100).toFixed(1), e.gp, e.wins, topLegends(e).join(' / ')]);
+    [e.name, e.events, e.played, e.w, e.l, e.d, (e.winPct * 100).toFixed(1), e.gp, e.wins]);
   return [head, ...rows]
     .map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
 }
 
 function toCSV() {
-  const rows = [['event', 'date', 'place', 'team', 'players', 'legends',
+  const rows = [['event', 'date', 'place', 'team', 'players',
     'game_points', 'wins', 'losses', 'draws', 'match_points']];
   for (const ev of state.archive)
     for (const s of ev.standings)
       rows.push([ev.name, new Date(ev.date).toISOString().slice(0, 10), s.place, s.name,
-        s.players.join(' & '), (s.legends || []).filter(Boolean).join(' & '),
+        s.players.join(' & '),
         s.gp ?? '', s.w, s.l, s.d, s.pts]);
   return rows.map(r => r.map(c => `"${String(c ?? '').replace(/"/g, '""')}"`).join(',')).join('\n');
 }
@@ -1100,24 +1128,27 @@ if (!isDisplay) {
     // The id is whatever was used for signup import, so there is nothing to paste.
     const id = state.eventId || $('#ev-id').value.trim().replace(/\D/g, '');
     if (!id) return msg('#uvs-msg', 'Put the event ID on the Setup tab first — the same one used for Import signups.', 'err');
-    msg('#uvs-msg', 'Reading the UVS event page…');
+    msg('#uvs-msg', 'Reading the Riftbound event page…');
     try {
       const feed = await fetchUvs(id);
-      const { count } = applyUvs(feed);
+      const { count, unmatched = [], twice = [] } = (teamsOnRiot() ? applyTeamFeed : applyUvs)(feed);
       state.eventId = id;
+      if (unmatched.length) return msg('#uvs-msg', `Not on any team: ${unmatched.join(', ')}. Add them on the Teams tab, then refresh.`, 'err');
+      if (twice.length) return msg('#uvs-msg', `Both players checked in for ${twice.join(', ')}. Drop one of them on the Riftbound page.`, 'err');
       msg('#uvs-msg', count
         ? `Round ${feed.round}: showing ${count} match${count === 1 ? '' : 'es'} from "${feed.name}".`
-        : `Connected to "${feed.name}", but UVS has not paired a round yet.`, count ? 'ok' : 'err');
+        : `Connected to "${feed.name}", but the Riftbound page has not paired a round yet.`, count ? 'ok' : 'err');
     } catch (err) { msg('#uvs-msg', err.message, 'err'); }
   }
 
   // Players report on their own phones, so poll to pick that up without anyone
   // pressing anything. Quietly -- a failed poll must not stamp on the message line.
+  // Once a minute: each poll is a whole ~200KB page, not a small JSON feed.
   setInterval(() => {
-    if (state.uvsMode && state.eventId) {
-      fetchUvs(state.eventId).then(applyUvs).catch(() => {});
+    if ((state.uvsMode || teamsOnRiot()) && state.eventId) {
+      fetchUvs(state.eventId).then(teamsOnRiot() ? applyTeamFeed : applyUvs).catch(() => {});
     }
-  }, 30000);
+  }, 60000);
 
   $('#btn-add-player').onclick = () => {
     const name = $('#new-player').value.trim();
@@ -1183,7 +1214,7 @@ if (!isDisplay) {
   };
 
   $('#btn-pair').onclick = () => {
-    if (state.uvsMode) return msg('#round-msg', 'UVS is providing the pairings — press Refresh from UVS instead.', 'err');
+    if (state.uvsMode) return msg('#round-msg', 'The Riftbound page is providing the pairings — press Refresh from Riftbound instead.', 'err');
     if (soloMode()) syncSoloTeams();
     if (state.teams.length < 2)
       return msg('#round-msg', soloMode() ? 'Need at least two players.' : 'Need at least two teams.', 'err');
@@ -1225,7 +1256,7 @@ if (!isDisplay) {
     save();
   };
   $('#btn-next-round').onclick = () => {
-    if (state.uvsMode) return msg('#round-msg', 'UVS is providing the pairings — pair the next round there, then press Refresh from UVS.', 'err');
+    if (state.uvsMode) return msg('#round-msg', 'The Riftbound page is providing the pairings — pair the next round there, then press Refresh from Riftbound.', 'err');
     const r = currentRound();
     if (!r) return msg('#round-msg', 'No round in progress.', 'err');
     if (r.pairings.some(p => !reported(p))) return msg('#round-msg', 'Enter both scores for every match first.', 'err');
@@ -1364,14 +1395,11 @@ function showTab(tab) {
 // saved: it is a detour, not a state the app should come back up in.
 let settingsOnly = false;
 
-// An unofficial night has no locator event to mirror, so only an official 1v1 is
-// the UVS mirror. Everything else is run here, which is what uvsMode means.
-//
-// 2v2 has no manual setting at all: the app runs those pairings either way, so
-// the only thing a toggle could change is whether the signup import is offered,
-// which is not worth a switch. Manual is therefore a 1v1 idea.
+// An unofficial night has no Riftbound event to read, so only an official 1v1 is
+// the mirror (uvsMode: nothing scored here). An official 2v2 takes its pairings
+// from Riot but is scored here (teamsOnRiot); a manual night of either kind is
+// run entirely here.
 function setMode(mode, manual = state.manual) {
-  if (mode === '2v2') manual = false;
   const changed = state.mode !== mode || !!state.manual !== !!manual;
   state.mode = mode;
   state.manual = !!manual;
@@ -1385,7 +1413,7 @@ function setMode(mode, manual = state.manual) {
   }
   save();
   showTab('setup');
-  if (state.uvsMode && state.eventId) $('#btn-uvs').click();
+  if ((state.uvsMode || teamsOnRiot()) && state.eventId) $('#btn-uvs').click();
 }
 
 function applyMode() {
@@ -1534,6 +1562,9 @@ function displayMode() {
   const r = currentRound();
   if (!rows.length) return 'standings';
   if (!r) return 'pairings';           // mirroring, before the clock exists
+  // Riot has no standings until round 1 is finalized; an empty standings
+  // screen is worse than leaving the pairings up.
+  if (state.uvsMode && !state.uvsStandings?.length) return 'pairings';
   const mins = state.pairingMinutes ?? 8;
   if (mins <= 0) return 'standings';
   if (allIn(rows)) return 'standings';

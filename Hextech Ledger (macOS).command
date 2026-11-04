@@ -1,10 +1,12 @@
 #!/bin/bash
 # Double-click to run Hextech Ledger on a Mac.
 #
-# Serving from localhost is what makes signup import work without any proxy:
-# the Riftbound locator API allowlists "localhost", but not hosted origins.
+# Serving from localhost is what lets the app read the Riftbound event page:
+# the page sends no CORS headers, so the local server relays it.
 #
 # Tries whatever runtime the Mac already has before asking for an install.
+# Perl comes first: it ships with macOS, and an older Node someone installed
+# would make serve.js refuse to start (it requires the Node2Shell fix).
 
 cd "$(dirname "$0")" || exit 1
 PORT=8080
@@ -23,15 +25,15 @@ echo "Starting Hextech Ledger at $URL"
 echo "Keep this window open. Closing it stops the app."
 echo
 
-if command -v node >/dev/null 2>&1; then
-  open_soon &
-  exec node tools/serve.js "$PORT"
-
 # Perl ships with macOS and is a real binary, not a stub. This is the path a
 # stock Mac with nothing installed takes. tools/serve.pl uses only core modules.
-elif [ -x /usr/bin/perl ]; then
+if [ -x /usr/bin/perl ]; then
   open_soon &
   exec /usr/bin/perl tools/serve.pl "$PORT"
+
+elif command -v node >/dev/null 2>&1; then
+  open_soon &
+  exec node tools/serve.js "$PORT"
 
 # Ruby was deprecated in Catalina, but the bundled 2.6 still has WEBrick where
 # it survives.
