@@ -246,9 +246,18 @@ function records() {
   return rec;
 }
 
+// Official 2v2: a team Riot never paired didn't turn up (its captain was dropped
+// as a no-show), so once Riot has paired anything it is left off the standings
+// and the archive rather than sitting on the TV at 0 points all night.
+function playedTeams() {
+  if (!teamsOnRiot() || !state.rounds.some(r => r.pairings.length)) return state.teams;
+  const ids = new Set(state.rounds.flatMap(r => r.pairings.flatMap(p => [p.a, p.b])));
+  return state.teams.filter(t => ids.has(t.id));
+}
+
 function standings() {
   const rec = records();
-  const list = state.teams.map(t => ({ ...rec[t.id], team: t }));
+  const list = playedTeams().map(t => ({ ...rec[t.id], team: t }));
   if (state.order) {
     const pos = Object.fromEntries(state.order.map((id, i) => [id, i]));
     return list.sort((a, b) => (pos[a.id] ?? 99) - (pos[b.id] ?? 99));
@@ -484,7 +493,7 @@ function renderControl() {
     ? 'This app makes the pairings, assigns tables and keeps the scores. Nothing is read from the Riftbound event page.'
     : state.mode === '1v1'
       ? 'The Riftbound event page owns the pairings and the players report there. This app mirrors it and runs the clock.'
-      : 'Import everyone, make the teams, then only one player per team checks in on the Riftbound page. It pairs those captains; this app shows the teams and keeps the points.';
+      : 'Import signups before anyone is dropped, make the teams, then drop each teammate on the Riftbound page so only captains are left. It pairs the captains; this app shows the teams and keeps the points. Importing again later only adds people, so teammates are never lost.';
 
   // players
   $('#player-list').innerHTML = state.players.map(p => `
@@ -824,9 +833,10 @@ function applyUvs(feed) {
 // ------------------------------------------------------------ 2v2 on Riot
 //
 // Riot has no team events yet and no "shop pairs it" mode, so a 2v2 runs as a
-// 1v1 of captains: only one player per team checks in (Riot drops the rest when
-// it pairs), the page pairs them, and the captains report the winner. Teams are
-// made here as usual from the full signup list; a Riot name is mapped to
+// 1v1 of captains: the organiser drops each teammate from the Riot event, the
+// page pairs the captains, and they report the winner. Dropped players vanish
+// from Riot's list entirely, so teams are made here from a signup import taken
+// before the drops (re-importing only adds); a Riot name is mapped to
 // whichever team it is on, so there is no separate captain to mark. Results land
 // in the app's own rounds, which keeps game points, the archive and both
 // teammates' records working exactly as on a night paired here.
@@ -871,7 +881,7 @@ function finishEvent() {
     date: Date.now(),
     name: state.name,
     players: state.players.map(p => ({ name: p.name })),
-    teams: state.teams.map(t => ({ name: t.name, players: t.players.map(id => player(id)?.name ?? '?') })),
+    teams: playedTeams().map(t => ({ name: t.name, players: t.players.map(id => player(id)?.name ?? '?') })),
     rounds: state.rounds.length,
     // No legend is written here, by design -- see purgeMeta().
     standings: final.map((s, i) => ({
@@ -964,7 +974,7 @@ async function download(filename, text, type) {
 function playerResults() {
   const rec = records();
   const rows = [];
-  for (const t of state.teams) {
+  for (const t of playedTeams()) {
     const r = rec[t.id];
     if (!r) continue;
     for (const id of t.players) {
@@ -1134,7 +1144,7 @@ if (!isDisplay) {
       const { count, unmatched = [], twice = [] } = (teamsOnRiot() ? applyTeamFeed : applyUvs)(feed);
       state.eventId = id;
       if (unmatched.length) return msg('#uvs-msg', `Not on any team: ${unmatched.join(', ')}. Add them on the Teams tab, then refresh.`, 'err');
-      if (twice.length) return msg('#uvs-msg', `Both players checked in for ${twice.join(', ')}. Drop one of them on the Riftbound page.`, 'err');
+      if (twice.length) return msg('#uvs-msg', `Both players are still in the Riftbound event for ${twice.join(', ')}. Drop the teammate there.`, 'err');
       msg('#uvs-msg', count
         ? `Round ${feed.round}: showing ${count} match${count === 1 ? '' : 'es'} from "${feed.name}".`
         : `Connected to "${feed.name}", but the Riftbound page has not paired a round yet.`, count ? 'ok' : 'err');

@@ -7,7 +7,8 @@
 // v3 moves signup import from UVS to playriftbound.com.
 // v4 brings the 1v1 mirror back, reading playriftbound.com.
 // v5 takes 2v2 pairings from Riot (captains only).
-const CACHE = 'hextech-ledger-v5';
+// v6 hides 2v2 teams Riot never paired; teammates are dropped, not unchecked.
+const CACHE = 'hextech-ledger-v6';
 const SHELL = ['.', 'index.html', 'app.css', 'app.js',
   'data/legends.json', 'icon.svg', 'manifest.webmanifest'];
 

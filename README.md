@@ -241,14 +241,20 @@ app turns those captains back into teams and keeps the points.
 
 Pick **2v2** when the app asks.
 
-1. **Setup** — paste the event number (the long number at the end of its web
-   address) and click **Import signups**. Both teammates should be signed up;
-   import them all. People still on the waitlist are left out; click Import again
-   later to pick up anyone who moved up. You can also add players by hand.
-2. **Teams** — put the players into pairs and give the teams names.
-3. **Check-in: only one player per team checks in on the Riftbound page** — that
-   is the captain. Either teammate will do. Anyone not checked in is dropped by
-   the Riftbound page when it pairs, so the teammates fall off on their own.
+1. **Setup** — everyone signs up on the Riftbound page as usual. **Before you drop
+   anyone**, paste the event number (the long number at the end of its web
+   address) and click **Import signups** to bring in everyone, teammates
+   included. A player you drop disappears from the Riftbound page's list, so this
+   is the only time the teammates can be imported. People still on the waitlist
+   are left out. You can also add players by hand.
+2. **Teams** — put the players into pairs and give the teams names. Leave anyone
+   who didn't turn up off the teams.
+3. **On the Riftbound page, drop each team's teammate** so only one player per
+   team — the captain — is left. Either teammate will do.
+
+   Clicking **Import signups** again after this is safe: it only adds new people
+   (late signups, anyone off the waitlist) and never removes anyone, so the
+   dropped teammates stay on their teams in the app.
 4. **Round** — the Riftbound page pairs the captains. The app checks it once a
    minute (or press **Refresh from Riftbound**) and puts the **team names** at the
    Riftbound page's table numbers on the TV. Press **Start timer**.
@@ -259,15 +265,19 @@ Pick **2v2** when the app asks.
 
 If the app says **"Not on any team"**, a player who was paired isn't on a team in
 the app — fix it on the Teams tab and it sorts itself out on the next check. If it
-says **"Both players checked in"**, drop one of that team's players on the
-Riftbound page.
+says **"Both players are still in the Riftbound event"**, drop that team's
+teammate on the Riftbound page.
+
+A team that never gets paired by the Riftbound page — because nobody from it
+turned up — drops off the TV leaderboard and the saved results once round 1 is
+paired, so it doesn't sit there at 0 points all night.
 
 The leaderboard on the TV ranks on points, while the Riftbound page pairs on wins
 and losses, so the two orders won't always match. That is expected.
 
 ### An unofficial 2v2 night
 
-Tick **Manual** and the app does all of it: skip the import and check-in, then
+Tick **Manual** and the app does all of it: skip the import and the dropping, then
 on the Round tab use **Generate pairings**, tap the winning team, type both teams'
 points, and **Finish round & continue** for the next round.
 
@@ -275,7 +285,7 @@ points, and **Finish round & continue** for the next round.
 
 It lists every player **in alphabetical order** with their own win or loss for the
 round. Both players on a team get their team's result, and a bye counts as a win
-for both — so the teammates who never checked in still have a record.
+for both — so the teammates who were dropped on the Riftbound page still have a record.
 
 Anything not finished yet says **not reported** rather than showing a loss, so you
 can see at a glance what is still outstanding.
